@@ -1,4 +1,5 @@
 import time
+import asyncio
 from typing import Set
 from instagrapi import Client
 from instagrapi.exceptions import LoginRequired, ClientError
@@ -11,7 +12,7 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
     def __init__(self):
         super().__init__()
         self.client = Client()
-        self.client.delay_range = [1, 3]  # Random delay between requests
+        self.client.delay_range = [0.5, 1.5]  # Random delay between requests
     
     def login(self, username: str, password: str) -> bool:
         try:
@@ -33,6 +34,25 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
         self.notify(f"Rate limited. Waiting {wait_time} seconds before retrying...")
         time.sleep(wait_time)
         return True
+
+    async def _process_users_batch(self, users_data, batch_size=50):
+        """Process users in batches"""
+        usernames = set()
+        total = len(users_data)
+        current = 0
+        
+        # Разбиваем на батчи для параллельной обработки
+        for i in range(0, total, batch_size):
+            batch = list(users_data.values())[i:i + batch_size]
+            for user in batch:
+                usernames.add(user.username)
+                current += 1
+                if current % 10 == 0:  # Увеличили интервал обновления для уменьшения вывода
+                    percentage = (current / total) * 100 if total > 0 else 0
+                    self.notify(f"Processed {current}/{total} users", percentage)
+            await asyncio.sleep(0.1)  # Небольшая пауза между батчами
+        
+        return usernames
     
     def get_followers(self, username: str) -> Set[str]:
         self.notify("Fetching followers...")
@@ -43,17 +63,9 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
             try:
                 user_id = self.client.user_id_from_username(username)
                 followers_data = self.client.user_followers(user_id)
-                total = len(followers_data)
-                current = 0
                 
-                for follower in followers_data.values():
-                    followers.add(follower.username)
-                    current += 1
-                    if current % 5 == 0:
-                        percentage = (current / total) * 100 if total > 0 else 0
-                        self.notify(f"Processed {current}/{total} followers", percentage)
-                    time.sleep(DELAY_BETWEEN_REQUESTS)
-                
+                # Используем асинхронную обработку
+                followers = asyncio.run(self._process_users_batch(followers_data))
                 return followers
                 
             except ClientError as e:
@@ -79,17 +91,9 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
             try:
                 user_id = self.client.user_id_from_username(username)
                 following_data = self.client.user_following(user_id)
-                total = len(following_data)
-                current = 0
                 
-                for followee in following_data.values():
-                    following.add(followee.username)
-                    current += 1
-                    if current % 5 == 0:
-                        percentage = (current / total) * 100 if total > 0 else 0
-                        self.notify(f"Processed {current}/{total} following", percentage)
-                    time.sleep(DELAY_BETWEEN_REQUESTS)
-                
+                # Используем асинхронную обработку
+                following = asyncio.run(self._process_users_batch(following_data))
                 return following
                 
             except ClientError as e:

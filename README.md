@@ -1,33 +1,81 @@
 # Instagram Non-Followers Tracker
 
-This Python application helps you identify Instagram users who don't follow you back. It uses the `instaloader` library to safely interact with Instagram.
+Это приложение на Python помогает определить, кто из пользователей Instagram не подписан на вас в ответ. Программа использует библиотеку `instagrapi` для безопасного взаимодействия с Instagram.
 
-## Setup
+## Возможности
 
-1. Install dependencies:
+- Безопасная авторизация в Instagram
+- Анализ подписчиков и подписок
+- Определение пользователей, которые не подписаны в ответ
+- Возможность проверки любого аккаунта
+- Асинхронная обработка данных для быстрой работы
+- Отображение прогресса выполнения
+- Использование современных паттернов проектирования
+
+## Установка
+
+1. Установите зависимости:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Create a `.env` file in the project root with your Instagram credentials:
+2. Создайте файл `.env` в корневой директории проекта с вашими учетными данными Instagram:
 ```
-INSTAGRAM_USERNAME=your_username
-INSTAGRAM_PASSWORD=your_password
+INSTAGRAM_USERNAME=ваш_логин
+INSTAGRAM_PASSWORD=ваш_пароль
 ```
 
-3. Run the program:
+## Использование
+
+1. Проверка своего аккаунта:
 ```bash
 python main.py
 ```
 
-## Features
+2. Проверка другого аккаунта:
+```bash
+python main.py имя_пользователя
+```
 
-- Safely authenticates with Instagram
-- Downloads list of followers and following
-- Identifies users who don't follow you back
-- Uses proper design patterns for maintainable code
-- Handles rate limiting and session management
+Например:
+```bash
+python main.py zuck
+```
 
-## Note
+## Как это работает
 
-Please use this tool responsibly and in accordance with Instagram's terms of service. Avoid making too many requests in a short period to prevent your account from being flagged. 
+1. Программа авторизуется в Instagram используя ваши учетные данные
+2. Получает список подписчиков указанного аккаунта
+3. Получает список подписок указанного аккаунта
+4. Сравнивает списки и находит пользователей, которые не подписаны в ответ
+5. Выводит результаты в консоль
+
+## Особенности реализации
+
+- Использование паттерна Strategy для различных методов получения данных
+- Использование паттерна Observer для отслеживания прогресса
+- Асинхронная обработка данных для оптимизации производительности
+- Пакетная обработка для уменьшения нагрузки на API
+- Обработка ошибок и автоматические повторные попытки при ограничении запросов
+
+## Важные замечания
+
+- Используйте программу ответственно и в соответствии с правилами Instagram
+- Избегайте слишком частых запросов, чтобы не получить временную блокировку
+- Храните свои учетные данные в безопасности
+- Программа требует авторизации для проверки любого аккаунта
+
+## Требования
+
+- Python 3.7 или выше
+- Установленные зависимости из requirements.txt
+- Аккаунт Instagram
+- Доступ к интернету
+
+## Устранение неполадок
+
+Если вы получаете ошибки:
+1. Проверьте правильность учетных данных в файле .env
+2. Убедитесь, что все зависимости установлены
+3. Проверьте подключение к интернету
+4. При получении ошибки о превышении лимита запросов, подождите несколько минут и попробуйте снова 
