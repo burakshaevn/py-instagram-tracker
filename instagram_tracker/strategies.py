@@ -12,26 +12,26 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
     def __init__(self):
         super().__init__()
         self.client = Client()
-        self.client.delay_range = [0.5, 1.5]  # Random delay between requests
+        self.client.delay_range = [0.5, 1.5]   
     
     def login(self, username: str, password: str) -> bool:
         try:
-            self.notify("Logging in to Instagram...")
+            self.notify("Вход в Instagram...")
             self.client.login(username, password)
-            self.notify("Successfully logged in!")
+            self.notify("Успешная авторизация.")
             return True
         except Exception as e:
-            self.notify(f"Login failed: {str(e)}")
+            self.notify(f"Ошибка при авторизации: {str(e)}")
             return False
     
     def _handle_rate_limit(self, retry_count: int) -> bool:
         """Handle rate limiting by waiting and retrying"""
         if retry_count >= MAX_RETRIES:
-            self.notify("Maximum retry attempts reached. Please try again later.")
+            self.notify("Достигнуто максимальное количество повторных попыток. Пожалуйста, повторите попытку позже.")
             return False
         
         wait_time = RETRY_DELAY * (retry_count + 1)
-        self.notify(f"Rate limited. Waiting {wait_time} seconds before retrying...")
+        self.notify(f"Скорость ограничена. Подождите {wait_time} секунды перед повторной попыткой...")
         time.sleep(wait_time)
         return True
 
@@ -49,13 +49,13 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
                 current += 1
                 if current % 10 == 0:  # Увеличили интервал обновления для уменьшения вывода
                     percentage = (current / total) * 100 if total > 0 else 0
-                    self.notify(f"Processed {current}/{total} users", percentage)
+                    self.notify(f"Обработано {current} пользователей из {total}.", percentage)
             await asyncio.sleep(0.1)  # Небольшая пауза между батчами
         
         return usernames
     
     def get_followers(self, username: str) -> Set[str]:
-        self.notify("Fetching followers...")
+        self.notify("Извлекаем пользователей...")
         followers = set()
         retry_count = 0
         
@@ -83,7 +83,7 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
         return followers
     
     def get_following(self, username: str) -> Set[str]:
-        self.notify("Fetching following...")
+        self.notify("Извлекаем пользователей...")
         following = set()
         retry_count = 0
         

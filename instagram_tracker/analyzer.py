@@ -29,7 +29,7 @@ class InstagramAnalyzer:
         
         if self.progress_subject:
             self.progress_subject.notify(
-                f"Analysis complete! Found {len(non_followers)} users who don't follow you back"
+                f"Анализ завершен, найдено {len(non_followers)} пользователей, которые не подписаны в ответ."
             )
         
         return non_followers 

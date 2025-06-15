@@ -15,17 +15,21 @@ class InstagramDataManager:
         """Генерирует имя файла для пользователя с временной меткой"""
         if timestamp is None:
             timestamp = datetime.now()
-        # Формат: username_YYYY-MM-DD_HH-MM.json
-        timestamp_str = timestamp.strftime("%Y-%m-%d_%H-%M")
+        # Формат: username_DD_MM_YYYY_HH_MM.json
+        timestamp_str = timestamp.strftime("%d_%m_%Y_%H_%M")
         return os.path.join(self.data_dir, f"{username}_{timestamp_str}.json")
     
     def save_data(self, username: str, followers: Set[str], following: Set[str]) -> str:
         """Сохраняет данные в JSON файл и возвращает имя файла"""
         data = {
             "username": username,
-            "timestamp": datetime.now().isoformat(),
-            "followers": list(followers),
-            "following": list(following)
+            "timestamp": datetime.now().strftime("%d_%m_%Y_%H_%M"),
+            "followers": sorted(list(followers)),
+            "following": sorted(list(following)),
+            "stats": {
+                "followers_count": len(followers),
+                "following_count": len(following)
+            }
         }
         
         filename = self._get_filename(username)
@@ -62,8 +66,8 @@ class InstagramDataManager:
     
     def compare_data(self, old_data: Dict, new_followers: Set[str], new_following: Set[str]) -> Dict:
         """Сравнивает старые и новые данные"""
-        old_followers = old_data['followers']
-        old_following = old_data['following']
+        old_followers = set(old_data['followers'])
+        old_following = set(old_data['following'])
         
         # Находим новых подписчиков
         new_followers_added = new_followers - old_followers
@@ -75,11 +79,11 @@ class InstagramDataManager:
         new_following_removed = old_following - new_following
         
         return {
-            "new_followers": list(new_followers_added),
-            "unfollowers": list(new_followers_removed),
-            "new_following": list(new_following_added),
-            "unfollowed": list(new_following_removed),
-            "timestamp": datetime.now().isoformat(),
+            "new_followers": sorted(list(new_followers_added)),
+            "unfollowers": sorted(list(new_followers_removed)),
+            "new_following": sorted(list(new_following_added)),
+            "unfollowed": sorted(list(new_following_removed)),
+            "timestamp": datetime.now().strftime("%d_%m_%Y_%H_%M"),
             "compared_with": old_data['timestamp']
         }
     

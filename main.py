@@ -5,7 +5,7 @@ import argparse
 from datetime import datetime
 from dotenv import load_dotenv
 from instagram_tracker.strategies import InstagrapiStrategy
-from instagram_tracker.observers import ConsoleObserver
+from instagram_tracker.observers import ConsoleProgressObserver
 from instagram_tracker.analyzer import InstagramAnalyzer
 from instagram_tracker.data_manager import InstagramDataManager
 from config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
@@ -38,10 +38,28 @@ def print_comparison_results(comparison_data: dict):
     print(f"\nВремя сравнения: {comparison_data['timestamp']}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Instagram Non-Followers Tracker')
-    parser.add_argument('username', nargs='?', help='Instagram username to check')
-    parser.add_argument('--save', action='store_true', help='Save results to JSON file')
-    parser.add_argument('--compare', nargs='?', const=True, metavar='FILE', help='Compare with previous data from file')
+    parser = argparse.ArgumentParser(
+        description='Анализ подписчиков и подписок в Instagram',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Команды:
+python main.py              - проверка своего аккаунта
+python main.py USERNAME     - проверка указанного аккаунта
+python main.py USERNAME --save           - сохранить результаты в JSON
+python main.py USERNAME --compare FILE   - сравнить с данными из файла
+
+Формат файлов:
+- Данные: username_DD_MM_YYYY_HH_MM.json
+- Сравнение: username_comparison_DD_MM_YYYY_HH_MM.json
+
+Требования:
+- Файл .env с учетными данными Instagram
+- VPN (если Instagram недоступен в регионе)
+'''
+    )
+    parser.add_argument('username', nargs='?', help='Имя пользователя Instagram')
+    parser.add_argument('--save', action='store_true', help='Сохранить в JSON')
+    parser.add_argument('--compare', help='Сравнить с файлом')
     args = parser.parse_args()
 
     # Load environment variables
@@ -52,16 +70,16 @@ def main():
     password = os.getenv('INSTAGRAM_PASSWORD')
     
     if not username or not password:
-        print("Error: INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD must be set in .env file")
+        print("Ошибка: INSTAGRAM_USERNAME и INSTAGRAM_PASSWORD должны быть заданы в файле .env")
         sys.exit(1)
     
     # Get target username from command line or use the authenticated user
     target_username = args.username or username
     
     # Create strategy and observer
-    strategy = InstagrapiStrategy(username, password)
-    observer = ConsoleObserver()
-    strategy.add_observer(observer)
+    strategy = InstagrapiStrategy()
+    observer = ConsoleProgressObserver()
+    strategy.attach(observer)
     
     # Create analyzer
     analyzer = InstagramAnalyzer(strategy)
@@ -70,17 +88,22 @@ def main():
     data_manager = InstagramDataManager()
     
     try:
+        # Login first
+        if not strategy.login(username, password):
+            print("Failed to login. Please check your credentials.")
+            sys.exit(1)
+            
         # Get followers and following
-        followers = asyncio.run(analyzer.get_followers(target_username))
-        following = asyncio.run(analyzer.get_following(target_username))
+        followers = strategy.get_followers(target_username)
+        following = strategy.get_following(target_username)
         
         # Find non-followers
-        non_followers = analyzer.find_non_followers(followers, following)
+        non_followers = following - followers
         
         # Print results
         print(f"\nПользователи, которые не подписаны в ответ на {target_username}:")
-        for user in non_followers:
-            print(f"- {user['username']} ({user['full_name']})")
+        for username in sorted(non_followers):
+            print(f"- {username}")
         print(f"\nВсего: {len(non_followers)} пользователей")
         
         # Save data if requested
@@ -90,24 +113,25 @@ def main():
         
         # Compare with previous data if requested
         if args.compare:
-            if isinstance(args.compare, str):
-                old_data = data_manager.load_data(args.compare)
-                if old_data:
-                    comparison = data_manager.compare_data(old_data, {
-                        'followers': followers,
-                        'following': following
-                    })
-                    print_comparison_results(comparison)
-                    
-                    # Save comparison results if --save is also specified
-                    if args.save:
-                        comparison_file = data_manager.save_comparison(target_username, comparison)
-                        print(f"\nРезультаты сравнения сохранены в файл: {comparison_file}")
-                else:
-                    print(f"\nОшибка: Не удалось загрузить файл {args.compare}")
+            if not os.path.exists(args.compare):
+                print(f"\nОшибка: Файл {args.compare} не найден")
+                sys.exit(1)
+                
+            old_data = data_manager.load_data(args.compare)
+            if old_data:
+                comparison = data_manager.compare_data(old_data, followers, following)
+                print_comparison_results(comparison)
+                
+                # Save comparison results if --save is also specified
+                if args.save:
+                    comparison_file = data_manager.save_comparison(target_username, comparison)
+                    print(f"\nРезультаты сравнения сохранены в файл: {comparison_file}")
             else:
-                print("\nОшибка: Укажите путь к файлу для сравнения")
-                print("Пример: python main.py username --compare data/username_2024-03-19_14-20.json")
+                print(f"\nОшибка: Не удалось загрузить файл {args.compare}")
+        elif args.compare is not None:  # --compare was used without a file path
+            print("\nОшибка: Укажите путь к файлу для сравнения")
+            print("Пример: python main.py username --compare \"C:\\path\\to\\file.json\"")
+            sys.exit(1)
     
     except Exception as e:
         print(f"Error: {str(e)}")
