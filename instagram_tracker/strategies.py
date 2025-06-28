@@ -17,11 +17,52 @@ class InstagrapiStrategy(InstagramDataStrategy, ProgressSubject):
     def login(self, username: str, password: str) -> bool:
         try:
             self.notify("Вход в Instagram...")
-            self.client.login(username, password)
-            self.notify("Успешная авторизация.")
-            return True
+            
+            # Попытка входа
+            try:
+                self.client.login(username, password)
+                self.notify("Успешный вход!")
+                return True
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Если требуется 2FA
+                if "two-factor authentication" in error_msg or "verification_code" in error_msg:
+                    self.notify("Требуется код двухфакторной аутентификации...")
+                    code = input("Введите 6-значный код из приложения 2FA: ")
+                    
+                    try:
+                        self.client.login(username, password, verification_code=code)
+                        self.notify("Успешный вход с 2FA!")
+                        return True
+                    except Exception as twofa_error:
+                        self.notify(f"Ошибка 2FA: {str(twofa_error)}")
+                        return False
+                
+                # Если требуется подтверждение устройства
+                elif "challenge" in error_msg or "verification" in error_msg:
+                    self.notify("Требуется подтверждение устройства...")
+                    code = input("Введите код подтверждения (3 или 6 цифр): ")
+                    
+                    try:
+                        # Пытаемся обработать challenge
+                        if hasattr(self.client, 'challenge_code_handler'):
+                            self.client.challenge_code_handler(code)
+                        else:
+                            # Альтернативный способ
+                            self.client.login(username, password, verification_code=code)
+                        self.notify("Подтверждение успешно!")
+                        return True
+                    except Exception as confirm_error:
+                        self.notify(f"Ошибка подтверждения: {str(confirm_error)}")
+                        return False
+                
+                else:
+                    self.notify(f"Ошибка входа: {str(e)}")
+                    return False
+                
         except Exception as e:
-            self.notify(f"Ошибка при авторизации: {str(e)}")
+            self.notify(f"Ошибка входа: {str(e)}")
             return False
     
     def _handle_rate_limit(self, retry_count: int) -> bool:
