@@ -2,6 +2,9 @@
 
 Определяет, кто из пользователей Instagram не подписан в ответ. Программа использует официальную библиотеку `instagrapi` для взаимодействия с Instagram.
 
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![Instagram](https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white)
+
 ## Команды
 
 ```powershell
