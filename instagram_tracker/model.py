@@ -103,7 +103,11 @@ def parse_timestamp(value: Any) -> Optional[datetime]:
         except ValueError:
             continue
     # «2024-01-30 12:00:00», «2024-01-30T12:00:00+00:00», «2024-01-30»
-    for candidate in (text, text.replace(" ", "T")):
+    # X-суффикс срезаем руками: datetime.fromisoformat() понимает его только с 3.11.
+    candidates = (text, text.replace(" ", "T"))
+    if text.endswith(("Z", "z")):
+        candidates += (text[:-1] + "+00:00", text[:-1].replace(" ", "T") + "+00:00")
+    for candidate in candidates:
         try:
             parsed = datetime.fromisoformat(candidate)
         except ValueError:

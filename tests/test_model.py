@@ -73,3 +73,9 @@ def test_snapshot_truncation_reported():
     assert snapshot.is_truncated("followers")
     assert snapshot.truncations == {"followers": (2, 5000)}
     assert snapshot.reliable is False
+
+
+def test_parse_timestamp_supports_z_suffix_on_older_python():
+    """3.10 не понимает «Z» в fromisoformat — разбираем сами (instagrapi требует 3.10+)."""
+    assert parse_timestamp("2026-01-30T12:00:00Z") == parse_timestamp("2026-01-30T12:00:00+00:00")
+    assert parse_timestamp("2026-01-30 12:00:00Z").tzinfo is timezone.utc
