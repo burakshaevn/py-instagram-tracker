@@ -1,12 +1,34 @@
-import os
-from dotenv import load_dotenv
+"""Совместимость: прежний корневой config.py теперь тонкая прослойка.
 
-load_dotenv()
+Настоящие настройки — в `instagram_tracker.settings` (читают переменные окружения и
+`.env`, если он лежит рядом). Все значения необязательны: для разбора выгрузки
+Instagram не нужен ни логин, ни пароль.
+"""
 
-INSTAGRAM_USERNAME = os.getenv('INSTAGRAM_USERNAME')
-INSTAGRAM_PASSWORD = os.getenv('INSTAGRAM_PASSWORD')
+from __future__ import annotations
 
-# Instagram scraping settings
-DELAY_BETWEEN_REQUESTS = 5  # seconds
-MAX_RETRIES = 5  # increased from 3 to 5
-RETRY_DELAY = 10  # seconds to wait between retries 
+from instagram_tracker.settings import Settings, load_settings
+
+_SETTINGS: Settings = load_settings()
+
+# Прежние имена, чтобы старые импорты (`from config import INSTAGRAM_PASSWORD`) работали.
+INSTAGRAM_USERNAME = _SETTINGS.instagram_username
+INSTAGRAM_PASSWORD = _SETTINGS.instagram_password
+INSTAGRAM_SESSIONID = _SETTINGS.instagram_sessionid
+INSTAGRAM_SESSION_FILE = str(_SETTINGS.session_file)
+INSTAGRAM_DATA_DIR = str(_SETTINGS.data_dir)
+DELAY_BETWEEN_REQUESTS = _SETTINGS.delay_range[0]
+MAX_RETRIES = _SETTINGS.max_retries
+RETRY_DELAY = _SETTINGS.retry_base_delay
+
+__all__ = [
+    "INSTAGRAM_USERNAME",
+    "INSTAGRAM_PASSWORD",
+    "INSTAGRAM_SESSIONID",
+    "INSTAGRAM_SESSION_FILE",
+    "INSTAGRAM_DATA_DIR",
+    "DELAY_BETWEEN_REQUESTS",
+    "MAX_RETRIES",
+    "RETRY_DELAY",
+    "load_settings",
+]

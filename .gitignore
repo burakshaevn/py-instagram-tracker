@@ -161,3 +161,11 @@ cython_debug/
 
 # Output user files
 data/
+
+# Сессии и куки: sessionid = право входа в аккаунт, в git такому места нет
+*session*.json
+cookies.txt
+cookies.json
+instagram_session*
+*.session
+report.csv
