@@ -1,6 +1,68 @@
 # Анализ подписчиков и подписок в Instagram
 
-Определяет, кто из пользователей Instagram не подписан в ответ. Программа использует официальную библиотеку `instagrapi` для взаимодействия с Instagram.
+Показывает, кто не подписан в ответ, и кто отписался между двумя снимками данных.
+Логин и пароль не нужны: читаем официальный экспорт Instagram. Если нужно «живьём» —
+используем сохранённую браузерную сессию (`sessionid`), а не пароль.
+
+## Требования
+
+- **Python 3.10 и новее.** Рекомендую **3.14.x** — актуальная стабильная ветка, она
+  поддержана `instagrapi` (3.10–3.14). Нужен консервативный выбор — берите **3.13**.
+  3.15 ставить рано: это ещё release candidate. Ядро (разбор экспорта) живёт и на 3.9,
+  но держать один вариант проще, а 3.10 к тому же уходит в EOL 31.10.2026.
+- Для разбора экспорта **зависимости не нужны** — только стандартная библиотека.
+- Для живого режима: `pip install -r requirements-live.txt` (`instagrapi>=3.0`).
+- `python-dotenv` опционален: `.env` читается и без него.
+
+## Быстрый старт — разбор экспорта (рекомендуется)
+
+Только этот способ даёт **полные** списки подписчиков, и скрипт вообще не трогает аккаунт:
+без лимитов и без риска блокировки.
+
+1. Instagram → Настройки и конфиденциальность → **Центр аккаунтов** → *Ваши данные и
+   разрешения* → **Скачать или перенести информацию** → выбрать аккаунт →
+   *Some of your information* → отметить только **Followers and following**.
+2. **Format: JSON** (HTML тоже умеем), **Date range: All time** → *Download to device*.
+3. Из письма скачать ZIP. Нужные файлы внутри:
+   `connections/followers_and_following/followers_1.json` и `following.json`
+   (при большом количестве подписчиков бывают `followers_2.json`, `followers_3.json` — читаем все).
+4. Запуск:
+
+```powershell
+python main.py analyze --export instagram-export.zip --save
+```
+
+Можно не архивировать и не указывать путь: положите `followers_1.json` и `following.json`
+в папку запуска и выполните `python main.py analyze` — файлы найдутся сами.
+
+Через некоторое время запросите выгрузку повторно и сравните:
+
+```powershell
+python main.py analyze --export export-2.zip --save --compare     # отписки и новые подписчики
+```
+
+`--compare` без пути берёт последний снимок из истории, с путём — сравнивает с ним
+(в качестве «старого» подойдёт и ZIP, и папка, и сохранённый снимок).
+
+## Живой режим (без пароля)
+
+Нужен, если данные требуются сейчас либо для чужого публичного профиля.
+
+```powershell
+python main.py session login --cookie "sessionid=58645670417:a1b2…"   # один раз
+python main.py session status
+python main.py analyze --live --save --compare
+```
+
+`sessionid` берётся в браузере: открыть `instagram.com` в своём аккаунте → DevTools (`F12`)
+→ Application → Cookies → `https://www.instagram.com` → скопировать значение `sessionid`
+(можно вставить и весь заголовок `Cookie: …`, и `cookies.txt`/JSON-экпорт куки — достанем сами).
+После `session login` сессия лежит в `data/instagram_session.json` — вводить больше не нужно.
+
+⚠ Живой API Instagram **обрезает** списки подписчиков (серверный флаг
+`should_limit_list_of_followers`) и жёстко лимитирует перечисления. Такой снимок
+помечается как неполный, и анализ на нём останавливается с внятной ошибкой — вместо
+молча выдуманных отписок. Осознанно взять неполные данные: `--allow-partial`.
 
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
 ![Instagram](https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white)
@@ -8,51 +70,73 @@
 ## Команды
 
 ```powershell
-python main.py                                 ← проверка своего аккаунта
-python main.py USERNAME                        ← проверка указанного аккаунта
-python main.py USERNAME --save                 ← сохранить результаты в JSON
-python main.py USERNAME --compare FILE         ← сравнить с данными из файла
-python main.py USERNAME --compare FILE --save  ← сравнить и сохранить результаты сравнения
+python main.py analyze [USERNAME]     # разбор снимка (+ сравнение, если есть история)
+    --export PATH                     # ZIP / папка / отдельный файл выгрузки
+    --live                            # через живую сессию
+    --snapshot PATH                   # уже сохранённый снимок
+    --compare [PATH]                  # сравнить с прошлым: без пути — последний снимок истории
+    --save                            # положить снимок в историю
+    --save-report                     # сохранить отчёт(ы) в JSON
+    --format text|json|csv  --out F   # вывод
+    --limit N                         # сколько имён печатать (0 = все)
+    --show-mutual                     # печатать и взаимные подписки
+    --allow-partial                   # мириться с усечёнными данными
+    --quiet                           # без прогресса
+
+python main.py snapshots list [USERNAME]
+python main.py snapshots show PATH
+python main.py snapshots diff OLD NEW      # сравнить любые два источника напрямую
+python main.py session login|status
 ```
 
-## Установка
+Старый вызов `python main.py USERNAME --save` и переменные `.env`
+(`INSTAGRAM_USERNAME`, `INSTAGRAM_PASSWORD`) продолжают работать, но не требуются.
 
-1. Установите зависимости:
+## Что означают секции
+
+- **Вы подписаны, они — нет** — не подписаны в ответ (`following − followers`).
+- **Они подписаны на вас, вы — нет** — ваши читатели, на кого вы не подписаны.
+- **Новые подписчики / Отписались от вас** — динамика `followers` между снимками.
+- **Вы подписались / Вы отписались** — динамика `following`.
+- **Сменили ник** — не считаются отпиской, если известен `user_id` (в экспорте его нет,
+  там сравнение по нику).
+
+## Файлы
+
+```
+data/
+├── instagram_session.json                       # живая сессия (секрет, в git не попадает)
+├── snapshots/<ник>__<20260926T112030Z>__snapshot.json
+└── reports/<ник>__<момент>__diff.json | __followback.json
+```
+
+Снимок содержит ники, `user_id`, имена, даты подписки, источник и признак полноты.
+Старые файлы `username_DD_MM_YYYY_HH_MM.json` и `username_comparison_*.json` читаются как раньше.
+
+## Ограничения
+
+- Анализ возможен только для **своего** аккаунта: чужие списки подписчиков Instagram
+  не отдаёт никому (ни экспортом, ни API).
+- Дату самой отписки взять неоткуда — фиксируется факт «изменилось между снимками N и M».
+- Официальный Graph API списков подписчиков не имеет (scope `follower_list` закрыт),
+  поэтому «полностью легального» автоматического пути не существует.
+
+## Тесты
+
 ```bash
-pip install -r requirements.txt
+python -m pytest
 ```
 
-2. Создайте файл «`.env`» в корневой директории проекта с учетными данными Instagram:
+## Структура
+
 ```
-INSTAGRAM_USERNAME=ваш_логин
-INSTAGRAM_PASSWORD=ваш_пароль
-```
-
-## Формат файлов
-
-- Файлы данных: `username_DD_MM_YYYY_HH_MM.json`
-- Файлы сравнения: `username_comparison_DD_MM_YYYY_HH_MM.json`
-
-## Требования
-
-- Python 3.7 или выше
-- Установленные зависимости из `requirements.txt`
-- Любой аккаунт Instagram 
-- VPN (если Instagram недоступен в регионе)
-
-## Возможные ошибки
-
-1. Проверьте правильность учетных данных в файле `.env`
-2. Убедитесь, что все зависимости установлены
-3. Проверьте подключение к интернету и VPN
-4. При получении ошибки о превышении лимита запросов, подождите несколько минут и попробуйте снова
-
-### [?] Решение проблемы «**ConnectionError HTTPSConnectionPool**»:
-
-Требует подключения VPN для авторизации, если Instagram недоступен в вашем регионе.
-```powershell
-PS C:\dev\repos\py-instagram-tracker> python main.py
-Logging in to Instagram...
-Login failed: ConnectionError HTTPSConnectionPool(host='i.instagram.com', port=443): Max retries exceeded with url: /api/v1/launcher/sync/ (Caused by ReadTimeoutError("HTTPSConnectionPool(host='i.instagram.com', port=443): Read timed out. (read timeout=None)"))       
-Failed to login. Please check your credentials.
+instagram_tracker/
+├── model.py            # UserRef, Snapshot, нормализация ников и дат
+├── analyzer.py         # взаимные подписки и diff между снимками (чистые функции)
+├── sources/
+│   ├── export.py       # официальный экспорт Instagram: ZIP, папка, JSON, HTML
+│   └── session.py      # живые данные: сессия, пагинация, ретраи, контроль полноты
+├── data_manager.py     # история снимков и отчётов
+├── cli.py              # команды
+└── settings.py         # настройки из окружения
 ```
